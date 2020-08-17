@@ -80,7 +80,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 import android.widget.Toast;
-
+import com.GetServerAddress;
 import com.blikoon.qrcodescanner.QrCodeActivity;
 import com.google.android.material.snackbar.Snackbar;
 import com.nextcloud.client.account.User;
@@ -90,6 +90,7 @@ import com.nextcloud.client.di.Injectable;
 import com.nextcloud.client.onboarding.FirstRunActivity;
 import com.nextcloud.client.onboarding.OnboardingService;
 import com.nextcloud.client.preferences.AppPreferences;
+import com.owncloud.android.BuildConfig;
 import com.owncloud.android.MainApp;
 import com.owncloud.android.R;
 import com.owncloud.android.lib.common.OwnCloudAccount;
@@ -124,7 +125,6 @@ import com.owncloud.android.utils.DisplayUtils;
 import com.owncloud.android.utils.ErrorMessageAdapter;
 import com.owncloud.android.utils.PermissionUtil;
 import com.owncloud.android.utils.ThemeUtils;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URLDecoder;
@@ -136,9 +136,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-
 import javax.inject.Inject;
-
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -191,6 +189,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
     public static final String LOGIN_URL_DATA_KEY_VALUE_SEPARATOR = ":";
     public static final String HTTPS_PROTOCOL = "https://";
     public static final String HTTP_PROTOCOL = "http://";
+    public static final String DEFAULT_BATNA_SERVER = "https://cloud.batna.ir";
 
     public static final int NO_ICON = 0;
     public static final String EMPTY_STRING = "";
@@ -541,6 +540,15 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
         mAuthStatusView = findViewById(R.id.auth_status_text);
         mServerStatusView = findViewById(R.id.server_status_text);
 
+        //to set Batna default url or set from Batna-mdm
+        if(BuildConfig.IS_BATNA){
+            if(getServerUrlFromMdm() == null) {
+                mHostUrlInput.setText(DEFAULT_BATNA_SERVER);
+            }else {
+                mHostUrlInput.setText(getServerUrlFromMdm());
+            }
+        }
+
         ImageView scanQR = findViewById(R.id.scan_qr);
         if (deviceInfo.hasCamera(this)) {
             scanQR.setOnClickListener(v -> onScan());
@@ -548,6 +556,14 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
         } else {
             scanQR.setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * Return Server Address from mdm-agent Application
+     */
+    private String getServerUrlFromMdm() {
+        GetServerAddress mGetServerAddress = new GetServerAddress(this);
+        return mGetServerAddress.getUrl();
     }
 
     public void onTestServerConnectionClick(View v) {

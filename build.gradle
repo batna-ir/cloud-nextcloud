@@ -182,6 +182,14 @@ android {
                 versionCode 1
                 versionName "1"
             }
+
+            batna {
+                applicationId "ir.batna.cloud"
+                dimension "default"
+                versionCode 9905261
+                versionName "Mordad99-A"
+                buildConfigField "boolean", "IS_BATNA", "true"
+            }
         }
 
         testOptions {
@@ -274,6 +282,8 @@ dependencies {
     gplayImplementation "com.github.nextcloud:android-library:$androidLibraryVersion"
     versionDevImplementation "com.github.nextcloud:android-library:$androidLibraryVersion"
     qaImplementation "com.github.nextcloud:android-library:$androidLibraryVersion"
+    batnaImplementation "com.github.nextcloud:android-library:$androidLibraryVersion"
+
 
     kapt 'javax.xml.bind:jaxb-api:2.3.1'
     kapt 'org.glassfish.jaxb:jaxb-core:2.3.0.1'
