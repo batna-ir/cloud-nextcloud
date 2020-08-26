@@ -189,7 +189,6 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
     public static final String LOGIN_URL_DATA_KEY_VALUE_SEPARATOR = ":";
     public static final String HTTPS_PROTOCOL = "https://";
     public static final String HTTP_PROTOCOL = "http://";
-    public static final String DEFAULT_BATNA_SERVER = "https://cloud.batna.ir";
 
     public static final int NO_ICON = 0;
     public static final String EMPTY_STRING = "";
@@ -238,6 +237,11 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
     private String webViewUser;
     private String webViewPassword;
 
+    //Edit for batna
+    private static final String DEFAULT_BATNA_SERVER = "https://cloud.batna.ir";
+    private String receivedUrlFromMdm;
+    private boolean isBatna = false;
+
     @Inject UserAccountManager accountManager;
     @Inject AppPreferences preferences;
     @Inject OnboardingService onboarding;
@@ -259,6 +263,12 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
         boolean directLogin = data != null && data.toString().startsWith(getString(R.string.login_data_own_scheme));
         if (savedInstanceState == null && !directLogin) {
             onboarding.launchFirstRunIfNeeded(this);
+        }
+
+        //for batna flavor
+        if (BuildConfig.IS_BATNA) {
+            isBatna = true;
+            receivedUrlFromMdm = getServerUrlFromMdm();
         }
 
         onlyAdd = getIntent().getBooleanExtra(KEY_ONLY_ADD, false);
@@ -310,17 +320,33 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
             setContentView(R.layout.account_setup_webview);
             mLoginWebView = findViewById(R.id.login_webview);
             initWebViewLogin(webloginUrl, false);
+
         } else {
-            setContentView(R.layout.account_setup);
 
-            /// initialize general UI elements
-            initOverallUi();
+            //to set Batna default url or set from Batna-mdm application
+            if (isBatna) {
 
-            /// initialize block to be moved to single Fragment to check server and get info about it
+                if (receivedUrlFromMdm == null) {
+                    setContentView(R.layout.account_setup_webview);
+                    mLoginWebView = findViewById(R.id.login_webview);
+                    initWebViewLogin(DEFAULT_BATNA_SERVER + WEB_LOGIN, false);
 
-            /// initialize block to be moved to single Fragment to retrieve and validate credentials
-            initAuthorizationPreFragment(savedInstanceState);
+                } else {
+                    setContentView(R.layout.account_setup_webview);
+                    mLoginWebView = findViewById(R.id.login_webview);
+                    initWebViewLogin(receivedUrlFromMdm + WEB_LOGIN, false);
+                }
 
+            } else {
+
+                setContentView(R.layout.account_setup);
+                /// initialize general UI elements
+                initOverallUi();
+                /// initialize block to be moved to single Fragment to check server and get info about it
+
+                /// initialize block to be moved to single Fragment to retrieve and validate credentials
+                initAuthorizationPreFragment(savedInstanceState);
+            }
         }
 
         initServerPreFragment(savedInstanceState);
@@ -540,15 +566,6 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
         mAuthStatusView = findViewById(R.id.auth_status_text);
         mServerStatusView = findViewById(R.id.server_status_text);
 
-        //to set Batna default url or set from Batna-mdm
-        if(BuildConfig.IS_BATNA){
-            if(getServerUrlFromMdm() == null) {
-                mHostUrlInput.setText(DEFAULT_BATNA_SERVER);
-            }else {
-                mHostUrlInput.setText(getServerUrlFromMdm());
-            }
-        }
-
         ImageView scanQR = findViewById(R.id.scan_qr);
         if (deviceInfo.hasCamera(this)) {
             scanQR.setOnClickListener(v -> onScan());
@@ -624,8 +641,11 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
         /// step 2 - set properties of UI elements (text, visibility, enabled...)
         showAuthStatus();
 
-        mHostUrlInput.setImeOptions(EditorInfo.IME_ACTION_NEXT);
-        mHostUrlInput.setOnEditorActionListener(this);
+        // to prevent null exception in batna flavor
+        if(!isBatna){
+            mHostUrlInput.setImeOptions(EditorInfo.IME_ACTION_NEXT);
+            mHostUrlInput.setOnEditorActionListener(this);
+        }
     }
 
     /**
@@ -765,19 +785,38 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
 
 
     private void checkOcServer() {
+
         String uri;
-        if (mHostUrlInput != null && !mHostUrlInput.getText().toString().isEmpty()) {
-            uri = mHostUrlInput.getText().toString().trim();
-        } else {
-            uri = mServerInfo.mBaseUrl;
+
+        //batna flavor
+        if(isBatna){
+
+            if(receivedUrlFromMdm != null && !receivedUrlFromMdm.isEmpty()) {
+                //Url provided by MDM application
+                uri = receivedUrlFromMdm;
+
+            }else {
+                //Url not provided by MDB so use default url
+                uri = DEFAULT_BATNA_SERVER;
+            }
+
+        }else {
+
+            if (mHostUrlInput != null && !mHostUrlInput.getText().toString().isEmpty()) {
+                uri = mHostUrlInput.getText().toString().trim();
+            } else {
+                uri = mServerInfo.mBaseUrl;
+            }
         }
 
         mServerInfo = new GetServerInfoOperation.ServerInfo();
 
         if (uri.length() != 0) {
-            if (mHostUrlInput != null) {
-                uri = AuthenticatorUrlUtils.stripIndexPhpOrAppsFiles(uri);
-                mHostUrlInput.setText(uri);
+            if(!isBatna){
+                if (mHostUrlInput != null) {
+                    uri = AuthenticatorUrlUtils.stripIndexPhpOrAppsFiles(uri);
+                    mHostUrlInput.setText(uri);
+                }
             }
 
             // Handle internationalized domain names
@@ -788,7 +827,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
                 Log_OC.e(TAG, "Error converting internationalized domain name " + uri, ex);
             }
 
-            if (mHostUrlInput != null) {
+            if (mHostUrlInput != null && !isBatna) {
                 mServerStatusText = getResources().getString(R.string.auth_testing_connection);
                 mServerStatusIcon = R.drawable.progress_small;
                 showServerStatus();
@@ -805,7 +844,6 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
             } else {
                 Log_OC.e(TAG, "Server check tried with OperationService unbound!");
             }
-
         }
     }
 
@@ -840,14 +878,40 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
      */
     @Override
     public void onRemoteOperationFinish(RemoteOperation operation, RemoteOperationResult result) {
+
         if (operation instanceof GetServerInfoOperation) {
             if (operation.hashCode() == mWaitingForOpId) {
                 onGetServerInfoFinish(result);
+
+                //Notify Batna user
+                if(isBatna) {
+                    batnaUserNotifier(result);
+                }
+
             }   // else nothing ; only the last check operation is considered;
             // multiple can be started if the user amends a URL quickly
 
         } else if (operation instanceof GetUserInfoRemoteOperation) {
             onGetUserNameFinish(result);
+        }
+    }
+
+    //Show server statement to Batna user
+    private void batnaUserNotifier(RemoteOperationResult result){
+
+        switch (result.getCode()) {
+
+            case NO_NETWORK_CONNECTION:
+                showToast(getResources().getString(R.string.auth_no_net_conn_title));
+                break;
+
+            case TIMEOUT:
+                showToast(getResources().getString(R.string.auth_timeout_title));
+                break;
+
+            case HOST_NOT_AVAILABLE:
+                showToast(getResources().getString(R.string.wrong_server_address));
+                break;
         }
     }
 
@@ -927,14 +991,18 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
                         }
                     }
                 }).start();
-
-                setContentView(R.layout.account_setup_webview);
-                mLoginWebView = findViewById(R.id.login_webview);
-                initWebViewLogin(mServerInfo.mBaseUrl + WEB_LOGIN, false);
+                if(!isBatna){
+                    setContentView(R.layout.account_setup_webview);
+                    mLoginWebView = findViewById(R.id.login_webview);
+                    initWebViewLogin(mServerInfo.mBaseUrl + WEB_LOGIN, false);
+                }
             }
         } else {
-            updateServerStatusIconAndText(result);
-            showServerStatus();
+
+            if(!isBatna){
+                updateServerStatusIconAndText(result);
+                showServerStatus();
+            }
         }
 
         // very special case (TODO: move to a common place for all the remote operations)
@@ -1148,14 +1216,17 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
                 }
             } else {
                 // init webView again
-                mLoginWebView.setVisibility(View.GONE);
-                setContentView(R.layout.account_setup);
-                initOverallUi();
+                if(!isBatna) {
+                    mLoginWebView.setVisibility(View.GONE);
+                    setContentView(R.layout.account_setup);
+                    initOverallUi();
 
-                mAuthStatusView = findViewById(R.id.auth_status_text);
-                mHostUrlInput.setText(mServerInfo.mBaseUrl);
-                mServerStatusView.setVisibility(View.GONE);
-                showAuthStatus();
+                    mAuthStatusView = findViewById(R.id.auth_status_text);
+                    mHostUrlInput.setText(mServerInfo.mBaseUrl);
+                    mServerStatusView.setVisibility(View.GONE);
+                    showAuthStatus();
+                }
+
             }
 
         } else if (result.isServerFail() || result.isException()) {
@@ -1444,6 +1515,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
 
         @Override
         public void onServiceConnected(ComponentName component, IBinder service) {
+
             if (component.equals(
                 new ComponentName(AuthenticatorActivity.this, OperationsService.class)
             )) {
@@ -1469,12 +1541,16 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
                     doOnResumeAndBound();
                 }
             }
+            if(isBatna){
+                checkOcServer();
+            }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName component) {
             if (component.equals(
                 new ComponentName(AuthenticatorActivity.this, OperationsService.class)
+
             )) {
                 Log_OC.e(TAG, "Operations service crashed");
                 mOperationsServiceBinder = null;
@@ -1552,5 +1628,8 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
     @Override
     public void onFailedSavingCertificate() {
         DisplayUtils.showSnackMessage(this, R.string.ssl_validator_not_saved);
+    }
+    private void showToast(String text){
+        Toast.makeText(this,text,Toast.LENGTH_LONG).show();
     }
 }

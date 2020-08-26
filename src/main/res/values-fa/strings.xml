@@ -363,7 +363,7 @@
     <string name="logs_title">Logs</string>
     <string name="maintenance_mode">سرور در حالت تعمیر و نگهداری</string>
     <string name="manage_space_clear_data">اطلاعات روشن</string>
-    <string name="manage_space_description">   تنظیمات ، پایگاه داده و گواهینامه های سرور از 
+    <string name="manage_space_description">   تنظیمات ، پایگاه داده و گواهینامه های سرور از
 %1$sداده ها به طور دائم حذف می شوند.فایلهای بارگیری نشده دست نخورده باقی می مانند. این فرآیند می تواند مدتی طول بکشد.</string>
     <string name="manage_space_title">مدیریت فضا</string>
     <string name="media_err_invalid_progressive_playback">فایل رسانه ای قابل پخش نیست</string>
@@ -747,6 +747,7 @@
     <string name="what_s_new_image">تصاویر جدید</string>
     <string name="whats_new_skip">پرش</string>
     <string name="whats_new_title">جدید در %1$s</string>
+    <string name="wrong_server_address">آدرس سرور اشتباه است!</string>
     <plurals name="sync_fail_in_favourites_content">
         <item quantity="one">امکان همگام سازی وجود ندارد %1$dفایل  (برخورد ها: %2$d)</item>
         <item quantity="other">امکان همگام سازی وجود ندارد %1$d فایل ها(درگیری ها: %2$d)</item>

@@ -162,6 +162,7 @@ android {
             generic {
                 applicationId 'com.nextcloud.client'
                 dimension "default"
+                buildConfigField "boolean", "IS_BATNA", "false"
             }
 
             gplay {
